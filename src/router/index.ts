@@ -11,6 +11,7 @@ import Groups from "../views/Groups.vue";
 import GroupDetail from "../views/GroupDetail.vue";
 import Specifications from "../views/Specifications.vue";
 import GanttChart from "../views/GanttChart.vue";
+import Analytics from "../views/Analytics.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
 
@@ -41,6 +42,7 @@ const routes: Array<RouteRecordRaw> = [
       { path: "groups/:id", name: "GroupDetail", component: GroupDetail, props: true },
       { path: "specifications", name: "Specifications", component: Specifications },
       { path: "gantt", name: "GanttChart", component: GanttChart },
+      { path: "analytics", name: "Analytics", component: Analytics },
     ],
   },
 ];

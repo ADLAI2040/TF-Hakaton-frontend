@@ -83,6 +83,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  BarChart3,
 } from "lucide-vue-next";
 
 const route = useRoute();
@@ -110,6 +111,7 @@ const navItems = [
   { path: "/groups", label: "Группы", icon: UsersRound },
   { path: "/specifications", label: "Спецификации", icon: FileText },
   { path: "/gantt", label: "График Ганта", icon: GanttChart },
+  { path: "/analytics", label: "Аналитика", icon: BarChart3 },
 ];
 
 function isActive(path: string) {
