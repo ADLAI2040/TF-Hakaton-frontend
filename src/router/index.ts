@@ -11,11 +11,27 @@ import Groups from "../views/Groups.vue";
 import GroupDetail from "../views/GroupDetail.vue";
 import Specifications from "../views/Specifications.vue";
 import GanttChart from "../views/GanttChart.vue";
+import Login from "../views/Login.vue";
+import Register from "../views/Register.vue";
+
+import { useAuthStore } from "@/stores/useAuthStore";
 
 const routes: Array<RouteRecordRaw> = [
   {
+    path: "/login",
+    name: "Login",
+    component: Login,
+    meta: { guest: true },
+  },
+  {
+    path: "/register",
+    name: "Register",
+    component: Register,
+    meta: { guest: true },
+  },
+  {
     path: "/",
-    component: AppLayout, 
+    component: AppLayout,
     children: [
       { path: "", name: "Dashboard", component: Dashboard },
       { path: "courses", name: "Courses", component: Courses },
@@ -32,6 +48,18 @@ const routes: Array<RouteRecordRaw> = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+router.beforeEach((to) => {
+  const authStore = useAuthStore();
+
+  if (to.meta.guest && authStore.isAuthenticated) {
+    return '/';
+  }
+
+  if (!to.meta.guest && !authStore.isAuthenticated) {
+    return '/login';
+  }
 });
 
 export default router;
