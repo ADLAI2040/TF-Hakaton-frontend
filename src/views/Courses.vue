@@ -129,8 +129,6 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { base44 } from "@/api/base44Client";
-
 import { BookOpen, Plus, Pencil, Trash2, Search } from "lucide-vue-next";
 
 import  Button  from "@/components/ui/button.vue";
@@ -143,7 +141,7 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 
 import { toast } from '@/composables/use-toast'
-
+import axios from 'axios';
 
 
 const emptyCourse = {
@@ -163,9 +161,14 @@ const editing = ref(null);
 const form = ref({ ...emptyCourse });
 
 const load = async () => {
-  const data = await base44.entities.Course.list("-created_date", 100);
-  courses.value = data;
-  loading.value = false;
+  try {
+        const data = await axios.get("http://localhost:8080/api/cources/list");
+        courses.value = data;
+      } catch (error) {
+        console.error('Ошибка:', error);
+      } finally {
+        loading.value = false;
+      }
 };
 
 onMounted(load);
@@ -194,26 +197,39 @@ const openEdit = (course) => {
 };
 
 const handleSave = async () => {
-  const data = {
-    ...form.value,
-    duration_days: Number(form.value.duration_days),
-    price_per_person: Number(form.value.price_per_person)
-  };
 
-  if (editing.value) {
-    await base44.entities.Course.update(editing.value.id, data);
-    toast({ title: "Курс обновлён" });
-  } else {
-    await base44.entities.Course.create(data);
-    toast({ title: "Курс создан" });
+  try {
+    // Данные для отправки
+    const data = {
+      code: Number(form.value.code),
+      title: String(form.value.name),
+      description: String(form.value.description),
+      duration_days: Number(form.value.duration_days)
+    };
+
+    // Отправка POST запроса
+    if (editing.value) {
+      //Обновление существующего курса
+      const response = await axios.post("http://localhost:8080/api/cources/${editing.id}", data);
+      toast({ title: "Курс обновлён" });
+    } else {
+      //Создание нового курса
+      const response = await axios.post("http://localhost:8080/api/cources/create", data);
+      toast({ title: "Курс создан" });
+    }
+
+    // Получение ответа
+    responseData.value = response.data;
+    console.log(response.data);
+  } catch (error) {
+    console.error('Ошибка:', error);
   }
-
   dialogOpen.value = false;
   load();
 };
 
 const handleDelete = async (id) => {
-  await base44.entities.Course.delete(id);
+  await axios.delete("http://localhost:8080/api/cources/${editing.id}/soft");
   toast({ title: "Курс удалён" });
   load();
 };
