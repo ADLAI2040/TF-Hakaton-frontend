@@ -22,12 +22,12 @@ const props = defineProps({
     default: "",
   },
   modelValue: {
-    type: String,
+    type: [String, Number],
     default: "",
   },
 });
 
-defineEmits(['update:modelValue']);
+defineEmits(["update:modelValue"]);
 
 const classes = computed(() =>
   cn(

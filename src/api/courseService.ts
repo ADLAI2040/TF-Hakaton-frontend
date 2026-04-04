@@ -1,33 +1,21 @@
 import apiClient from '@/api/axios';
 
-
 export const courseService = {
+  read: () =>
+    apiClient.get('/courses/list'),
 
-  read() {
-    return apiClient.get(`/courses/list`);
-  },
-    
+  create: (payload: object) =>
+    apiClient.post('/courses/create', payload),
 
-  create(data: { 
-      code: number;
-      title: string;
-      description: string;
-      duration_days: number; 
-    }) {
-    return apiClient.post(`/courses/list`, data);
-  },
+  update: (id: number, payload: object) =>
+    apiClient.post(`/courses/${id}`, payload),
 
-  update(id: Number,
-    data: { 
-      code: number;
-      title: string;
-      description: string;
-      duration_days: number; 
-    }) {
-    return apiClient.post(`/courses/${id}`, data);
-  },
+  delete: (id: number) =>
+    apiClient.delete(`/courses/${id}/soft`),
 
-  delete(id: Number) {
-    return apiClient.delete(`/courses/${id}/soft`);
-  }
+  getPrices: (courseId: number) =>
+    apiClient.get(`/course_price/${courseId}/list`),
+
+  createPrice: (courseId: number, payload: object) =>
+    apiClient.post(`/course_price/${courseId}/create`, payload),
 };

@@ -1,6 +1,8 @@
 <template>
   <textarea
     :class="classes"
+    :value="modelValue"
+    @input="$emit('update:modelValue', $event.target.value)"
     v-bind="$attrs"
   />
 </template>
@@ -14,7 +16,13 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  modelValue: {
+    type: String,
+    default: "",
+  },
 });
+
+defineEmits(["update:modelValue"]);
 
 const classes = computed(() =>
   cn(
