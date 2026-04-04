@@ -162,7 +162,7 @@ const responseData = ref(null);
 const serverError = ref('')
 
 const form = ref({ ...emptyCourse });
-const isLoading = ref(false);
+
 
 const load = async () => {
   isLoading.value = true
@@ -203,31 +203,25 @@ const openEdit = (course) => {
 };
 
 const handleSave = async () => {
-  isLoading.value = true
-  serverError.value = ''
-
+  isLoading.value = true;
+  serverError.value = '';
   try {
-    // Данные для отправки
-    const id = editing.value; 
     const data = {
-      code: Number(form.value.code),
       title: String(form.value.name),
       description: String(form.value.description),
-      duration_days: Number(form.value.duration_days)
+      duration_days: Number(form.value.duration_days),
+      price_per_person: Number(form.value.price_per_person),
     };
-    // Отправка POST запроса
-    if (id.value) {
-      //Обновление существующего курса
-      await courseStore.create_course(id, data);
+
+    if (editing.value) {
+      await courseStore.update_course(editing.value.id, data);
     } else {
-      //Создание нового курса
-      await courseStore.update_course(data);
+      await courseStore.create_course(data);
     }
-  
-} catch (err) {
-      serverError.value = courseStore.error || 'Ошибка соединения с сервером'
+  } catch (err) {
+    serverError.value = courseStore.error || 'Ошибка соединения с сервером';
   } finally {
-    isLoading.value = false
+    isLoading.value = false;
   }
   dialogOpen.value = false;
   load();

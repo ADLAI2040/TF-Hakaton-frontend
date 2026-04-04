@@ -123,7 +123,7 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 
 import { toast } from '@/composables/use-toast'
-import { axios } from '@/api/axios';
+
 
 
 
@@ -142,7 +142,7 @@ const form = ref({
 
 const load = async () => {
   try {
-        const data = await axios.get("http://localhost:8080/api/companies/list");
+       // const data = await axios.get("http://localhost:8080/api/companies/list");
         companies.value = data;
   } catch (error) {
     console.error('Ошибка:', error);
@@ -187,11 +187,11 @@ const handleSave = async () => {
     // Отправка POST запроса
     if (editing.value) {
       //Обновление существующей компании
-      const response = await axios.post("http://localhost:8080/api/companies/${editing.id}", data);
+      // const response = await axios.post("http://localhost:8080/api/companies/${editing.id}", data);
       toast({ title: "Компания обновлёна" });
     } else {
       //Создание новой компании
-      const response = await axios.post("http://localhost:8080/api/companies/create", data);
+      // const response = await axios.post("http://localhost:8080/api/companies/create", data);
       toast({ title: "Компания создана" });
     }
 
@@ -207,7 +207,7 @@ const handleSave = async () => {
 
 const handleDelete = async (id) => {
   try {
-    const response = await axios.delete("http://localhost:8080/api/cources/${id}/soft");
+    // const response = await axios.delete("http://localhost:8080/api/cources/${id}/soft");
     toast({ title: "Компания удалена" });
 
     // Получение ответа

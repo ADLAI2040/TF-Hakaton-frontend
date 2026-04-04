@@ -36,23 +36,9 @@ export const useCourseStore = defineStore('course', () => {
       loading.value = false;
     }
 }
-  async function read_course() {
-    try {
-      const { data: response } = await courseService.read();
-      responseData.value = response;
-    } catch (e: any) {
-      // Если Laravel вернул validation errors
-      if (e.response?.status === 422) {
-        const errors = e.response.data.errors;
-        error.value = Object.values(errors).flat().join(', ');
-      } else {
-        error.value =
-          e.response?.data?.message || 'Ошибка регистрации';
-      }
-      throw e;
-    } finally {
-      loading.value = false;
-    }
+async function read_courses() {
+  const { data: response } = await courseService.read();
+  return response; 
 }
   async function update_course(id: number, payload: { 
       code: number;
