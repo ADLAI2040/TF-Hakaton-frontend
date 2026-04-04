@@ -2,7 +2,9 @@
   <input
     :type="type"
     :class="classes"
+    :value="modelValue"
     v-bind="$attrs"
+    @input="$emit('update:modelValue', $event.target.value)"
   />
 </template>
 
@@ -19,7 +21,13 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  modelValue: {
+    type: String,
+    default: "",
+  },
 });
+
+defineEmits(['update:modelValue']);
 
 const classes = computed(() =>
   cn(
