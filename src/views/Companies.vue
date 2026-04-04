@@ -1,7 +1,7 @@
 <template>
   <div>
     <PageHeader title="Компании" description="Справочник компаний-заказчиков">
-      <Button @click="openCreate" class="gap-2">
+      <Button @click="openCreate" class="gap-2" :disabled="store.loading">
         <Plus class="w-4 h-4" /> Добавить компанию
       </Button>
     </PageHeader>
@@ -53,6 +53,7 @@
                   variant="ghost"
                   class="h-8 w-8 text-destructive"
                   @click="handleDelete(company.id)"
+                  :disabled="store.loading"
                 >
                   <Trash2 class="w-3.5 h-3.5" />
                 </Button>
@@ -71,22 +72,32 @@
       <div class="space-y-4">
         <div>
           <Label>Код компании *</Label>
-          <Input v-model="form.code" placeholder="Например: ООО-001" />
-          <p v-if="errors.code" class="text-xs text-destructive mt-1">{{ errors.code }}</p>
+          <Input 
+            v-model="form.code" 
+            placeholder="Например: ООО-001" 
+            :class="fe.code ? 'border-destructive' : ''"
+            :disabled="store.loading"
+          />
+          <p v-if="fe.code" class="text-xs text-destructive mt-1">{{ fe.code }}</p>
         </div>
 
         <div>
           <Label>Название *</Label>
-          <Input v-model="form.name" placeholder='ООО "Ромашка"' />
-          <p v-if="errors.name" class="text-xs text-destructive mt-1">{{ errors.name }}</p>
+          <Input 
+            v-model="form.name" 
+            placeholder='ООО "Ромашка"' 
+            :class="fe.name ? 'border-destructive' : ''"
+            :disabled="store.loading"
+          />
+          <p v-if="fe.name" class="text-xs text-destructive mt-1">{{ fe.name }}</p>
         </div>
 
         <Button
           @click="handleSave"
-          :disabled="saving"
-          class="w-full"
+          :disabled="isFormInvalid || store.loading"
+          class="w-full gap-2"
         >
-          <span v-if="saving" class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+          <Loader2 v-if="store.loading" class="w-4 h-4 animate-spin" />
           {{ editing ? 'Сохранить' : 'Создать' }}
         </Button>
       </div>
@@ -94,46 +105,42 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
-import { Building2, Plus, Pencil, Trash2, Search } from 'lucide-vue-next'
-import apiClient  from '@/api/axios'
-import Button     from '@/components/ui/button.vue'
-import Input      from '@/components/ui/input.vue'
-import Dialog     from '@/components/ui/dialog.vue'
-import Label      from '@/components/ui/label.vue'
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { Building2, Plus, Pencil, Trash2, Search, Loader2 } from 'lucide-vue-next'
+import { useCompanyStore, type Company } from '@/stores/useCompanyStore'
+import { toast } from '@/composables/use-toast'
+
+import Button from '@/components/ui/button.vue'
+import Input from '@/components/ui/input.vue'
+import Dialog from '@/components/ui/dialog.vue'
+import Label from '@/components/ui/label.vue'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
-import { toast }  from '@/composables/use-toast'
 
-// ---------------------------------------------------------------------------
+const store = useCompanyStore()
+
 // State
-// ---------------------------------------------------------------------------
-const companies  = ref([])
-const loading    = ref(true)
-const saving     = ref(false)
-const search     = ref('')
+const companies = ref<Company[]>([])
+const loading = ref(true)
+const search = ref('')
 const dialogOpen = ref(false)
-const editing    = ref(null)
-const errors     = ref({})
-const form       = ref({ code: '', name: '' })
+const editing = ref<Company | null>(null)
+const form = ref({ code: '', name: '' })
 
-// ---------------------------------------------------------------------------
+const fe = computed(() => store.fieldErrors)
+
+const isFormInvalid = computed(() => 
+  !form.value.code?.trim() || !form.value.name?.trim()
+)
+
 // Load
-// ---------------------------------------------------------------------------
 const load = async () => {
   loading.value = true
   try {
-    const { data } = await apiClient.get('/companies/list')
-    companies.value = Array.isArray(data)
-      ? data
-      : (data.data ?? data.companies ?? [])
+    companies.value = await store.read_companies()
   } catch (e) {
-    toast({
-      title: 'Ошибка загрузки',
-      description: e?.response?.data?.message ?? e.message,
-      variant: 'destructive',
-    })
+    console.error(e)
   } finally {
     loading.value = false
   }
@@ -141,9 +148,7 @@ const load = async () => {
 
 onMounted(load)
 
-// ---------------------------------------------------------------------------
 // Computed
-// ---------------------------------------------------------------------------
 const filtered = computed(() =>
   companies.value.filter(
     (c) =>
@@ -152,86 +157,55 @@ const filtered = computed(() =>
   )
 )
 
-// ---------------------------------------------------------------------------
 // Dialog helpers
-// ---------------------------------------------------------------------------
-const openCreate = async () => {
-  editing.value    = null
-  errors.value     = {}
-  dialogOpen.value = true
-  await nextTick()
+const openCreate = () => {
+  editing.value = null
   form.value = { code: '', name: '' }
-}
-
-const openEdit = async (company) => {
-  editing.value    = company
-  errors.value     = {}
+  store.clearErrors()
   dialogOpen.value = true
-  await nextTick()
-  // spread разрывает ссылку на объект из массива — иначе v-model мутирует оригинал
-  form.value = { ...company }
 }
 
-// ---------------------------------------------------------------------------
+const openEdit = (company: Company) => {
+  editing.value = company
+  form.value = { code: company.code, name: company.name }
+  store.clearErrors()
+  dialogOpen.value = true
+}
+
 // Save
-// ---------------------------------------------------------------------------
 const handleSave = async () => {
-  if (!form.value.code || !form.value.name) {
-    if (!form.value.code) errors.value.code = 'Обязательное поле'
-    if (!form.value.name) errors.value.name = 'Обязательное поле'
-    return
-  }
-
-  errors.value = {}
-  saving.value = true
-
-  const payload = {
-    code: String(form.value.code),
-    name: String(form.value.name),
-  }
-
   try {
+    const payload = { 
+      code: form.value.code.trim(), 
+      name: form.value.name.trim() 
+    }
+    
     if (editing.value) {
-      await apiClient.post(`/companies/${editing.value.id}`, payload)
+      await store.update_company(editing.value.id, payload)
       toast({ title: 'Компания обновлена' })
     } else {
-      await apiClient.post('/companies/create', payload)
+      await store.create_company(payload)
       toast({ title: 'Компания создана' })
     }
+    
     dialogOpen.value = false
     await load()
-  } catch (e) {
-    if (e?.response?.status === 422) {
-      const fieldErrors = e.response.data?.errors ?? {}
-      errors.value = Object.fromEntries(
-        Object.entries(fieldErrors).map(([k, v]) => [k, Array.isArray(v) ? v[0] : v])
-      )
-    } else {
-      toast({
-        title: 'Ошибка сохранения',
-        description: e?.response?.data?.message ?? e.message,
-        variant: 'destructive',
-      })
-    }
-  } finally {
-    saving.value = false
+  } catch (e: any) {
+    console.log('Save error:', e.response?.data)
   }
 }
 
-// ---------------------------------------------------------------------------
 // Delete
-// ---------------------------------------------------------------------------
-const handleDelete = async (id) => {
+const handleDelete = async (id: number) => {
+  const company = companies.value.find(c => c.id === id)
+  if (!confirm(`Удалить "${company?.name}"?`)) return
+
   try {
-    await apiClient.delete(`/companies/${id}/soft`)
-    companies.value = companies.value.filter((c) => c.id !== id)
+    await store.delete_company(id)
     toast({ title: 'Компания удалена' })
-  } catch (e) {
-    toast({
-      title: 'Ошибка удаления',
-      description: e?.response?.data?.message ?? e.message,
-      variant: 'destructive',
-    })
+    companies.value = companies.value.filter(c => c.id !== id)
+  } catch (e: any) {
+    console.log('Delete error:', e.response?.data)
   }
 }
 </script>

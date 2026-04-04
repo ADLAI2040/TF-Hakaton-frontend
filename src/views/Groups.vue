@@ -1,7 +1,7 @@
 <template>
   <div>
     <PageHeader title="Учебные группы" description="Управление группами обучения">
-      <Button class="gap-2" @click="dialogOpen = true">
+      <Button class="gap-2" @click="dialogOpen = true" :disabled="store.loading">
         <Plus class="w-4 h-4" /> Создать группу
       </Button>
     </PageHeader>
@@ -22,7 +22,7 @@
                 :icon="UsersRound"
                 title="Нет групп"
                 description="Создайте первую учебную группу">
-      <Button variant="outline" class="gap-2" @click="dialogOpen = true">
+      <Button variant="outline" class="gap-2" @click="dialogOpen = true" :disabled="store.loading">
         <Plus class="w-4 h-4"/> Создать группу
       </Button>
     </EmptyState>
@@ -35,13 +35,13 @@
         <div class="flex justify-between items-start mb-4">
           <div>
             <h3 class="font-semibold text-lg">
-              {{ g.course?.name || 'Курс не указан' }}
+              {{ g.course?.name || g.course_name || 'Курс не указан' }}
             </h3>
             <p class="text-sm text-muted-foreground mt-1">
               {{ g.start_date || '—' }} — {{ g.end_date || '—' }}
             </p>
           </div>
-          <StatusBadge :status="g.status || 'draft'" :label="g.status_label"/>
+          <StatusBadge :status="g.status || 'planned'" :label="g.status_label"/>
         </div>
 
         <!-- Progress -->
@@ -73,10 +73,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import apiClient from '@/api/axios'
 import { UsersRound, Plus, Eye, Search } from 'lucide-vue-next'
+import { useTrainingGroupStore, type TrainingGroup } from '@/stores/useTrainingGroupStore'
 import PageHeader from '@/components/ui/PageHeader.vue'
 import Button from '@/components/ui/button.vue'
 import Input from '@/components/ui/input.vue'
@@ -85,7 +85,9 @@ import ProgressBar from '@/components/ui/ProgressBar.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import GroupFormDialog from '@/components/groups/GroupFormDialog.vue'
 
-const groups = ref([])
+const store = useTrainingGroupStore()
+
+const groups = ref<TrainingGroup[]>([])
 const loading = ref(true)
 const search = ref('')
 const dialogOpen = ref(false)
@@ -93,10 +95,9 @@ const dialogOpen = ref(false)
 const load = async () => {
   loading.value = true
   try {
-    const { data } = await apiClient.get('/training-groups')
-    groups.value = data?.data?.data || []
+    groups.value = await store.read_groups()
   } catch (e) {
-    groups.value = []
+    console.error(e)
   } finally {
     loading.value = false
   }
@@ -108,10 +109,10 @@ const filtered = computed(() => {
   const q = search.value.toLowerCase().trim()
   if (!q) return groups.value
   return groups.value.filter(g =>
-    (g.course?.name || '').toLowerCase().includes(q) ||
+    (g.course?.name || g.course_name || '').toLowerCase().includes(q) ||
     (g.status_label || '').toLowerCase().includes(q)
   )
 })
 
-const formatPrice = (v) => Number(v || 0).toLocaleString('ru-RU')
+const formatPrice = (v: number | string) => Number(v || 0).toLocaleString('ru-RU')
 </script>

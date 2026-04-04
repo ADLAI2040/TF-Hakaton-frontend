@@ -9,17 +9,17 @@
       </router-link>
 
       <div class="flex-1 min-w-0">
-        <h1 class="text-2xl font-bold truncate">{{ group?.course?.name || 'Группа' }}</h1>
+        <h1 class="text-2xl font-bold truncate">{{ group?.course?.name || group?.course_name || 'Группа' }}</h1>
         <p class="text-sm text-muted-foreground">
           {{ group?.start_date || '—' }} — {{ group?.end_date || '—' }}
         </p>
       </div>
 
-      <StatusBadge :status="group?.status" />
+      <StatusBadge :status="group?.status || 'planned'" :label="group?.status_label" />
 
       <!-- Действия -->
       <div class="flex items-center gap-2 flex-shrink-0">
-        <Button variant="outline" class="gap-2" @click="editDialogOpen = true" :disabled="deletingGroup">
+        <Button variant="outline" class="gap-2" @click="editDialogOpen = true" :disabled="store.loading || deletingGroup">
           <Pencil class="w-4 h-4" /> 
           <span class="hidden sm:inline">Редактировать</span>
         </Button>
@@ -27,7 +27,7 @@
         <Button 
           variant="destructive" 
           class="gap-2" 
-          :disabled="deletingGroup || loading"
+          :disabled="store.loading || deletingGroup"
           @click="deleteGroup"
         >
           <Loader2 v-if="deletingGroup" class="w-4 h-4 animate-spin" />
@@ -53,11 +53,11 @@
       <div class="lg:col-span-2">
         <div class="bg-card rounded-2xl border border-border">
           <div class="flex items-center justify-between px-6 py-4 border-b border-border">
-            <h2 class="font-semibold">Участники группы ({{ groupParticipants.length }})</h2>
+            <h2 class="font-semibold">Участники группы ({{ participants.length }})</h2>
             <Button 
               size="sm" 
               class="gap-2" 
-              :disabled="addingLoading || deletingGroup"
+              :disabled="store.loading || addingLoading || deletingGroup"
               @click="selectorOpen = true"
             >
               <Loader2 v-if="addingLoading" class="w-4 h-4 animate-spin" />
@@ -66,47 +66,46 @@
             </Button>
           </div>
 
-          <div v-if="groupParticipants.length === 0" class="p-8 text-center text-muted-foreground text-sm">
+          <div v-if="participants.length === 0" class="p-8 text-center text-muted-foreground text-sm">
             Нет участников в группе
           </div>
 
           <div v-else class="divide-y divide-border">
             <div 
-              v-for="gp in groupParticipants" 
-              :key="gp.id" 
+              v-for="p in participants" 
+              :key="p.id" 
               class="px-6 py-4 flex items-center gap-4 transition-opacity"
-              :class="{ 'opacity-50 pointer-events-none': removingId === gp.id }"
+              :class="{ 'opacity-50 pointer-events-none': store.loading || removingId === p.id }"
             >
               <div class="flex-1 min-w-0">
-                <p class="font-medium truncate">{{ gp.employee?.full_name || 'Неизвестный' }}</p>
-                <p v-if="gp.employee?.email" class="text-xs text-muted-foreground">{{ gp.employee.email }}</p>
+                <p class="font-medium truncate">{{ p.employee?.full_name || 'Неизвестный' }}</p>
+                <p v-if="p.employee?.email" class="text-xs text-muted-foreground">{{ p.employee.email }}</p>
               </div>
 
               <div class="w-48 relative">
                 <Slider
-                  :model-value="gp.completion_percent || 0"
+                  :model-value="p.completion_percent || 0"
                   :min="0"
                   :max="100"
                   :step="5"
-                  :disabled="savingProgressId === gp.id"
-                  @update:modelValue="(val) => handleSliderUpdate(gp.id, val)"
+                  :disabled="store.loading || savingProgressId === p.id"
+                  @update:modelValue="(val: number) => handleSliderUpdate(p.id, val)"
                 />
-                <!-- Индикатор сохранения -->
-                <div v-if="savingProgressId === gp.id" class="absolute -top-1.5 -right-1.5">
+                <div v-if="savingProgressId === p.id" class="absolute -top-1.5 -right-1.5">
                   <Loader2 class="w-3.5 h-3.5 animate-spin text-primary bg-background rounded-full" />
                 </div>
               </div>
 
-              <span class="text-sm font-medium w-12 text-right tabular-nums">{{ gp.completion_percent || 0 }}%</span>
+              <span class="text-sm font-medium w-12 text-right tabular-nums">{{ p.completion_percent || 0 }}%</span>
 
               <Button 
                 size="icon" 
                 variant="ghost" 
                 class="h-8 w-8 text-destructive" 
-                :disabled="removingId === gp.id || addingLoading || deletingGroup"
-                @click="removeParticipant(gp.id)"
+                :disabled="store.loading || removingId === p.id || addingLoading || deletingGroup"
+                @click="removeParticipant(p.id)"
               >
-                <Loader2 v-if="removingId === gp.id" class="w-3.5 h-3.5 animate-spin" />
+                <Loader2 v-if="removingId === p.id" class="w-3.5 h-3.5 animate-spin" />
                 <Trash2 v-else class="w-3.5 h-3.5" />
               </Button>
             </div>
@@ -125,7 +124,7 @@
         <div class="bg-card rounded-2xl border border-border p-6">
           <h3 class="font-semibold mb-4">Стоимость группы</h3>
           <div class="text-lg">{{ formatPrice(group.group_cost) }} ₽</div>
-          <div v-if="group.course?.price?.[0]?.price" class="text-sm text-muted-foreground">
+          <div v-if="group.course?.price" class="text-sm text-muted-foreground">
             за человека: {{ formatPrice(group.price_per_person) }} ₽
           </div>
         </div>
@@ -140,16 +139,17 @@
     />
     <ParticipantSelector
       v-model:open="selectorOpen"
-      :existingIds="groupParticipants.map(gp => gp.employee_id)"
+      :existingIds="participants.map(p => p.employee_id)"
       @select="handleAddParticipants"
     />
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import apiClient from '@/api/axios'
+import { useTrainingGroupStore, type TrainingGroup } from '@/stores/useTrainingGroupStore'
+import { toast } from '@/composables/use-toast'
 
 import { ArrowLeft, Pencil, Trash2, UserPlus, Loader2 } from 'lucide-vue-next'
 import Button from '@/components/ui/button.vue'
@@ -158,58 +158,60 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import ProgressBar from '@/components/ui/ProgressBar.vue'
 import GroupFormDialog from '@/components/groups/GroupFormDialog.vue'
 import ParticipantSelector from '@/components/groups/ParticipantSelector.vue'
-import { toast } from '@/composables/use-toast'
 
+const store = useTrainingGroupStore()
 const route = useRoute()
 const router = useRouter()
 
-const group = ref(null)
-const groupParticipants = ref([])
+const group = ref<TrainingGroup | null>(null)
+const participants = ref<Array<{
+  id: number;
+  employee_id: number;
+  employee?: { id: number; full_name: string; email?: string };
+  completion_percent: number;
+}>>([])
 const loading = ref(true)
 const editDialogOpen = ref(false)
 const selectorOpen = ref(false)
-const removingId = ref(null)
+const removingId = ref<number | null>(null)
 const addingLoading = ref(false)
-const savingProgressId = ref(null)
-const deletingGroup = ref(false) // ✅ Новое состояние
+const savingProgressId = ref<number | null>(null)
+const deletingGroup = ref(false)
 
-// Debounce таймер для слайдера
-let sliderDebounceTimer = null
+let sliderDebounceTimer: ReturnType<typeof setTimeout> | null = null
 
-// Загрузка данных группы
 const loadGroup = async () => {
-  const id = route.params.id
+  const id = Number(route.params.id)
   if (!id) {
-    toast({ title: 'ID группы не указан', variant: 'destructive' })
+    toast({ title: 'ID группы не указан'})
     return
   }
 
   loading.value = true
   try {
-    const { data } = await apiClient.get(`/training-groups/${id}`)
+    // Загружаем список и фильтруем по ID (т.к. read_group может не работать с пагинацией)
+    const allGroups = await store.read_groups()
+    const found = allGroups.find(g => g.id === id)
     
-    if (data?.success && data?.data) {
-      group.value = data.data
-      groupParticipants.value = data.data.participants || []
+    if (found) {
+      group.value = found
+      participants.value = found.participants || []
     } else {
-      throw new Error(data?.message || 'Неверный формат ответа')
+      throw new Error('Группа не найдена')
     }
-  } catch (e) {
+  } catch (e: any) {
     console.error('Ошибка загрузки группы:', e)
-    
     if (e.response?.status === 404) {
-      toast({ title: 'Группа не найдена', variant: 'destructive' })
+      toast({ title: 'Группа не найдена'})
       router.push('/groups')
     } else {
       toast({ 
         title: 'Ошибка загрузки', 
         description: e.response?.data?.message || e.message,
-        variant: 'destructive' 
       })
     }
-    
     group.value = null
-    groupParticipants.value = []
+    participants.value = []
   } finally {
     loading.value = false
   }
@@ -227,97 +229,83 @@ const onGroupSaved = async () => {
 }
 
 const averageProgress = computed(() => {
-  if (!groupParticipants.value.length) return 0
-  const total = groupParticipants.value.reduce((sum, gp) => sum + (gp.completion_percent || 0), 0)
-  return Math.round(total / groupParticipants.value.length)
+  if (!participants.value.length) return 0
+  const total = participants.value.reduce((sum, p) => sum + (p.completion_percent || 0), 0)
+  return Math.round(total / participants.value.length)
 })
 
-// Обработчик слайдера с мгновенным UI-обновлением и debounce
-const handleSliderUpdate = (gpId, value) => {
+const handleSliderUpdate = (pId: number, value: number) => {
   const numValue = Number(value)
-  const participant = groupParticipants.value.find(p => p.id === gpId)
+  const participant = participants.value.find(p => p.id === pId)
   
   if (participant) participant.completion_percent = numValue
 
-  clearTimeout(sliderDebounceTimer)
+  if (sliderDebounceTimer) clearTimeout(sliderDebounceTimer)
   sliderDebounceTimer = setTimeout(() => {
-    updateCompletion(gpId, numValue)
+    updateCompletion(pId, numValue)
   }, 500)
 }
 
-const updateCompletion = async (gpId, value) => {
-  if (savingProgressId.value === gpId) return
-  savingProgressId.value = gpId
+const updateCompletion = async (pId: number, value: number) => {
+  if (!group.value) return
+  if (savingProgressId.value === pId) return
+  savingProgressId.value = pId
 
-  const participant = groupParticipants.value.find(p => p.id === gpId)
+  const participant = participants.value.find(p => p.id === pId)
   const prevValue = participant?.completion_percent ?? 0
 
   try {
-    const { data } = await apiClient.patch(
-      `/training-groups/${group.value.id}/participants/${gpId}`,
-      { completion_percent: value }
-    )
-
-    if (data?.data && participant) {
-      Object.assign(participant, data.data)
-    }
-  } catch (e) {
+    await store.update_participant(group.value.id, pId, { completion_percent: value })
+  } catch (e: any) {
     console.error('Ошибка обновления прогресса:', e)
     if (participant) participant.completion_percent = prevValue
     toast({ 
       title: 'Не удалось сохранить прогресс', 
       description: e.response?.data?.message || e.message,
-      variant: 'destructive' 
     })
   } finally {
     savingProgressId.value = null
   }
 }
 
-const removeParticipant = async (gpId) => {
+const removeParticipant = async (pId: number) => {
+  if (!group.value) return
   if (!confirm('Удалить участника из группы?')) return
   
-  removingId.value = gpId
-  const originalList = [...groupParticipants.value]
+  removingId.value = pId
+  const originalList = [...participants.value]
   
   try {
-    groupParticipants.value = groupParticipants.value.filter(gp => gp.id !== gpId)
-    
-    await apiClient.delete(
-      `/training-groups/${group.value.id}/participants/${gpId}`
-    )
+    participants.value = participants.value.filter(p => p.id !== pId)
+    await store.remove_participant(group.value.id, pId)
     toast({ title: 'Участник удалён' })
-  } catch (e) {
+  } catch (e: any) {
     console.error('Ошибка удаления участника:', e)
-    groupParticipants.value = originalList
+    participants.value = originalList
     toast({ 
       title: 'Ошибка удаления', 
       description: e.response?.data?.message || e.message,
-      variant: 'destructive' 
     })
   } finally {
     removingId.value = null
   }
 }
 
-const handleAddParticipants = async (employeeIds) => {
-  const existing = new Set(groupParticipants.value.map(gp => gp.employee_id))
+const handleAddParticipants = async (employeeIds: number[]) => {
+  if (!group.value) return
+  
+  const existing = new Set(participants.value.map(p => p.employee_id))
   const newIds = employeeIds.filter(id => !existing.has(id))
   
   if (!newIds.length) {
-    toast({ title: 'Сотрудники уже добавлены', variant: 'destructive' })
+    toast({ title: 'Сотрудники уже добавлены',})
     return
   }
 
   addingLoading.value = true
   try {
     const results = await Promise.allSettled(
-      newIds.map(id => 
-        apiClient.post(
-          `/training-groups/${group.value.id}/participants`,
-          { employee_id: id, completion_percent: 0 }
-        )
-      )
+      newIds.map(id => store.add_participant(group.value!.id, { employee_id: id, completion_percent: 0 }))
     )
     
     const successCount = results.filter(r => r.status === 'fulfilled').length
@@ -327,7 +315,6 @@ const handleAddParticipants = async (employeeIds) => {
       toast({
         title: `Частичный успех`,
         description: `Добавлено: ${successCount}, ошибок: ${failCount}`,
-        variant: 'warning'
       })
     } else {
       toast({ title: `Добавлено участников: ${successCount}` })
@@ -335,40 +322,38 @@ const handleAddParticipants = async (employeeIds) => {
     
     selectorOpen.value = false
     await loadGroup()
-  } catch (e) {
+  } catch (e: any) {
     console.error('Ошибка добавления участников:', e)
     toast({ 
       title: 'Ошибка добавления', 
       description: e.response?.data?.message || e.message,
-      variant: 'destructive' 
     })
   } finally {
     addingLoading.value = false
   }
 }
 
-// ✅ Удаление группы
 const deleteGroup = async () => {
+  if (!group.value) return
   if (!confirm('Вы уверены, что хотите удалить эту группу? Все привязанные участники будут удалены безвозвратно.')) return
 
   deletingGroup.value = true
   try {
-    await apiClient.delete(`/training-groups/${group.value.id}`)
+    await store.delete_group(group.value.id)
     toast({ title: 'Группа успешно удалена' })
     router.push('/groups')
-  } catch (e) {
+  } catch (e: any) {
     console.error('Ошибка удаления группы:', e)
     toast({
       title: 'Ошибка удаления',
       description: e.response?.data?.message || e.message,
-      variant: 'destructive'
     })
   } finally {
     deletingGroup.value = false
   }
 }
 
-const formatPrice = (v) => {
+const formatPrice = (v: number | string) => {
   const num = Number(v || 0)
   return num.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
