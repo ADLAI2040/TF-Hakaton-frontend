@@ -157,6 +157,7 @@ const search = ref("");
 
 const dialogOpen = ref(false);
 const editing = ref(null);
+const responseData = ref(null);
 
 const form = ref({ ...emptyCourse });
 
@@ -164,11 +165,11 @@ const load = async () => {
   try {
         const data = await axios.get("http://localhost:8080/api/cources/list");
         courses.value = data;
-      } catch (error) {
-        console.error('Ошибка:', error);
-      } finally {
-        loading.value = false;
-      }
+  } catch (error) {
+    console.error('Ошибка:', error);
+  } finally {
+    loading.value = false;
+  }
 };
 
 onMounted(load);
@@ -220,7 +221,7 @@ const handleSave = async () => {
 
     // Получение ответа
     responseData.value = response.data;
-    console.log(response.data);
+    console.log(responseData.value);
   } catch (error) {
     console.error('Ошибка:', error);
   }
@@ -229,8 +230,16 @@ const handleSave = async () => {
 };
 
 const handleDelete = async (id) => {
-  await axios.delete("http://localhost:8080/api/cources/${editing.id}/soft");
-  toast({ title: "Курс удалён" });
+  try {
+    await axios.delete("http://localhost:8080/api/cources/${id}/soft");
+    toast({ title: "Курс удалён" });
+
+    // Получение ответа
+    responseData.value = response.data;
+    console.log(responseData.value);
+  } catch (error) {
+    console.error('Ошибка:', error);
+  }
   load();
 };
 </script>

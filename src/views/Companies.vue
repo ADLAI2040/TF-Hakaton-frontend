@@ -133,6 +133,7 @@ const search = ref("");
 
 const dialogOpen = ref(false);
 const editing = ref(null);
+const responseData = ref(null);
 
 const form = ref({
   code: "",
@@ -140,9 +141,14 @@ const form = ref({
 });
 
 const load = async () => {
-  const data = await base44.entities.Company.list("-created_date", 200);
-  companies.value = data;
-  loading.value = false;
+  try {
+        const data = await axios.get("http://localhost:8080/api/companies/list");
+        companies.value = data;
+  } catch (error) {
+    console.error('Ошибка:', error);
+  } finally {
+    loading.value = false;
+  }
 };
 
 onMounted(load);
@@ -171,21 +177,45 @@ const openEdit = (company) => {
 };
 
 const handleSave = async () => {
-  if (editing.value) {
-    await base44.entities.Company.update(editing.value.id, form.value);
-    toast({ title: "Компания обновлена" });
-  } else {
-    await base44.entities.Company.create(form.value);
-    toast({ title: "Компания создана" });
-  }
+  try {
+    // Данные для отправки
+    const data = {
+      code: Number(form.value.code),
+      name: String(form.value.name)
+    };
 
+    // Отправка POST запроса
+    if (editing.value) {
+      //Обновление существующей компании
+      const response = await axios.post("http://localhost:8080/api/companies/${editing.id}", data);
+      toast({ title: "Компания обновлёна" });
+    } else {
+      //Создание новой компании
+      const response = await axios.post("http://localhost:8080/api/companies/create", data);
+      toast({ title: "Компания создана" });
+    }
+
+    // Получение ответа
+    responseData.value = response.data;
+    console.log(responseData.value);
+  } catch (error) {
+    console.error('Ошибка:', error);
+  }
   dialogOpen.value = false;
   load();
 };
 
 const handleDelete = async (id) => {
-  await base44.entities.Company.delete(id);
-  toast({ title: "Компания удалена" });
+  try {
+    const response = await axios.delete("http://localhost:8080/api/cources/${id}/soft");
+    toast({ title: "Компания удалена" });
+
+    // Получение ответа
+    responseData.value = response.data;
+    console.log(responseData.value);
+  } catch (error) {
+    console.error('Ошибка:', error);
+  }
   load();
 };
 </script>
