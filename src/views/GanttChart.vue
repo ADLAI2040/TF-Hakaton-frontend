@@ -1103,7 +1103,8 @@ onBeforeUnmount(() => {
 .gantt-bar-pct {
   font-size: 11px;
   font-weight: 600;
-  opacity: 0.7;
+  opacity: 1;
+  color:gray;
 }
 
 /* ── Конфликтный бар: пульсация ────────────────────────────────────────────── */

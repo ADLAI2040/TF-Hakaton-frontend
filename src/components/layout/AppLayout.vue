@@ -10,12 +10,15 @@
     >
       <router-view />
     </main>
+
+    <Toaster />
   </div>
 </template>
 
 <script setup>
 import { ref } from "vue";
 import Sidebar from "@/components/layout/Sidebar.vue";
+import Toaster from "@/components/ui/use-toast.vue";
 
 const collapsed = ref(false);
 </script>

@@ -35,9 +35,13 @@ export function dismiss(id: string) {
   )
 }
 
-export function toast(props: { title?: string; description?: string }) {
+export function toast(props: {
+  title?: string;
+  description?: string;
+  variant?: 'default' | 'destructive';
+}) {
   const id = genId()
-  const t = { ...props, id, open: true }
+  const t = { ...props, id, open: true, variant: props.variant ?? 'default' }
   state.toasts = [t, ...state.toasts].slice(0, TOAST_LIMIT)
   addToRemoveQueue(id)
   return { id, dismiss: () => dismiss(id) }
