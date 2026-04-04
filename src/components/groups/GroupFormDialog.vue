@@ -1,140 +1,221 @@
 <template>
   <!-- OVERLAY -->
-  <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
-
-    <!-- BACKDROP -->
-    <div
-      class="absolute inset-0 bg-black/50"
-      @click="close"
-    />
-
+  <div 
+    v-if="open" 
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity"
+    @click.self="close"
+  >
     <!-- MODAL -->
-    <div
-      class="relative bg-white w-[500px] rounded-2xl p-6 z-10"
-    >
-      <h2 class="text-lg font-semibold mb-4">
-        {{ editingGroup ? "Редактировать группу" : "Создать группу" }}
-      </h2>
+    <div class="bg-card w-full max-w-md rounded-2xl border border-border p-6 shadow-xl m-4">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-xl font-semibold">
+          {{ isEditing ? 'Редактировать группу' : 'Создать группу' }}
+        </h2>
+        <button @click="close" class="text-muted-foreground hover:text-foreground transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
 
-      <!-- COURSE -->
-      <div class="mb-3">
-        <label class="text-sm">Курс</label>
-
-        <select v-model="form.course_id" class="w-full border p-2 rounded">
-          <option
-            v-for="c in courses"
-            :key="c.id"
-            :value="c.id"
+      <form @submit.prevent="submit" class="space-y-4">
+        <!-- COURSE -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium">Курс</label>
+          <select 
+            v-model="form.course_id" 
+            class="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+            :disabled="loadingCourses || submitting"
           >
-            {{ c.name }} — {{ format(c.price_per_person) }} ₽
-          </option>
-        </select>
-      </div>
+            <option value="" disabled>Выберите курс</option>
+            <option v-for="c in courses" :key="c.id" :value="c.id">
+              {{ c.title }} — {{ formatPrice(getActivePrice(c)) }} ₽
+            </option>
+          </select>
+          <p v-if="errors.course_id" class="text-xs text-destructive mt-1">{{ errors.course_id[0] }}</p>
+        </div>
 
-      <!-- DATES -->
-      <div class="grid grid-cols-2 gap-2 mb-3">
-        <input v-model="form.start_date" type="date" class="border p-2 rounded" />
-        <input v-model="form.end_date" type="date" class="border p-2 rounded" />
-      </div>
+        <!-- DATES -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-2">
+            <label class="text-sm font-medium">Дата начала</label>
+            <input 
+              v-model="form.start_date" 
+              type="date" 
+              class="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+              :disabled="submitting"
+            />
+            <p v-if="errors.start_date" class="text-xs text-destructive mt-1">{{ errors.start_date[0] }}</p>
+          </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium">Дата окончания</label>
+            <input 
+              v-model="form.end_date" 
+              type="date" 
+              class="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+              :disabled="submitting"
+            />
+            <p v-if="errors.end_date" class="text-xs text-destructive mt-1">{{ errors.end_date[0] }}</p>
+          </div>
+        </div>
 
-      <!-- STATUS -->
-      <div class="mb-4">
-        <select v-model="form.status" class="w-full border p-2 rounded">
-          <option>Планируется</option>
-          <option>В процессе</option>
-          <option>Завершено</option>
-        </select>
-      </div>
+        <!-- STATUS (Enum values instead of labels) -->
+        <div class="space-y-2">
+          <label class="text-sm font-medium">Статус</label>
+          <select 
+            v-model="form.status" 
+            class="w-full border border-border bg-background rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:opacity-50"
+            :disabled="submitting"
+          >
+            <option value="planned">Планируется</option>
+            <option value="in_progress">В процессе</option>
+            <option value="completed">Завершено</option>
+            <option value="cancelled">Отменено</option>
+          </select>
+          <p v-if="errors.status" class="text-xs text-destructive mt-1">{{ errors.status[0] }}</p>
+        </div>
 
-      <!-- ACTIONS -->
-      <div class="flex gap-2">
-        <button
-          class="flex-1 bg-gray-200 p-2 rounded"
-          @click="close"
-        >
-          Отмена
-        </button>
-
-        <button
-          class="flex-1 bg-black text-white p-2 rounded"
-          @click="save"
-        >
-          Сохранить
-        </button>
-      </div>
+        <!-- ACTIONS -->
+        <div class="flex gap-3 pt-2">
+          <button 
+            type="button" 
+            class="flex-1 px-4 py-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-sm font-medium disabled:opacity-50"
+            :disabled="submitting"
+            @click="close"
+          >
+            Отмена
+          </button>
+          <button 
+            type="submit" 
+            class="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+            :disabled="submitting || !form.course_id"
+          >
+            <svg v-if="submitting" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            {{ submitting ? 'Сохранение...' : 'Сохранить' }}
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watch } from "vue";
-import { base44 } from "@/api/base44Client";
+import { ref, reactive, watch, computed } from 'vue'
+import apiClient from '@/api/axios'
+import { toast } from '@/composables/use-toast'
 
 const props = defineProps({
   open: Boolean,
   editingGroup: Object
-});
+})
 
-const emit = defineEmits(["update:open", "saved"]);
+const emit = defineEmits(['update:open', 'saved'])
 
-const courses = ref([]);
+const courses = ref([])
+const loadingCourses = ref(false)
+const submitting = ref(false)
+const errors = ref({})
+
+const isEditing = computed(() => !!props.editingGroup)
 
 const form = reactive({
-  course_id: "",
-  start_date: "",
-  end_date: "",
-  status: "Планируется"
-});
+  course_id: '',
+  start_date: '',
+  end_date: '',
+  status: 'planned' // Enum value, not label
+})
 
 function close() {
-  emit("update:open", false);
+  emit('update:open', false)
 }
 
-function format(n) {
-  return Number(n || 0).toLocaleString("ru-RU");
+function formatPrice(n) {
+  return Number(n || 0).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+}
+
+// Безопасное извлечение цены (массив объектов или число)
+function getActivePrice(course) {
+  if (!course?.price) return 0
+  if (Array.isArray(course.price)) {
+    // Берём первую запись с ценой или первую в списке
+    const found = course.price.find(p => p.price != null) || course.price[0]
+    return found?.price || 0
+  }
+  return course.price
 }
 
 async function loadCourses() {
-  courses.value = await base44.entities.Course.list("-created_date", 100);
+  loadingCourses.value = true
+  try {
+    // ✅ Исправленный endpoint согласно вашим роутам
+    const { data } = await apiClient.get('/courses/list')
+    // Поддержка разных форматов ответа API
+    courses.value = data?.courses || data?.data?.courses || data?.data || data || []
+  } catch (e) {
+    console.error('Ошибка загрузки курсов:', e)
+    toast({ title: 'Не удалось загрузить список курсов', variant: 'destructive' })
+  } finally {
+    loadingCourses.value = false
+  }
 }
 
 watch(
   () => props.open,
-  async (v) => {
-    if (!v) return;
+  async (isOpen) => {
+    if (!isOpen) return
 
-    await loadCourses();
-
-    if (props.editingGroup) {
-      form.course_id = props.editingGroup.course_id || "";
-      form.start_date = props.editingGroup.start_date || "";
-      form.end_date = props.editingGroup.end_date || "";
-      form.status = props.editingGroup.status || "Планируется";
+    errors.value = {}
+    
+    if (isEditing.value && props.editingGroup) {
+      form.course_id = props.editingGroup.course_id || ''
+      // Приводим даты к YYYY-MM-DD
+      form.start_date = props.editingGroup.start_date ? String(props.editingGroup.start_date).split('T')[0] : ''
+      form.end_date = props.editingGroup.end_date ? String(props.editingGroup.end_date).split('T')[0] : ''
+      // ✅ Бэкенд возвращает enum value, просто используем его. Fallback на planned
+      form.status = props.editingGroup.status || 'planned'
     } else {
-      form.course_id = "";
-      form.start_date = "";
-      form.end_date = "";
-      form.status = "Планируется";
+      form.course_id = ''
+      form.start_date = ''
+      form.end_date = ''
+      form.status = 'planned'
+    }
+
+    if (!courses.value.length) {
+      await loadCourses()
     }
   }
-);
+)
 
-async function save() {
-  const course = courses.value.find(c => c.id === form.course_id);
+async function submit() {
+  submitting.value = true
+  errors.value = {}
 
-  const data = {
-    ...form,
-    course_name: course?.name || "",
-    price_per_person: course?.price_per_person || 0,
-  };
+  try {
+    const payload = { ...form }
+    
+    if (isEditing.value && props.editingGroup?.id) {
+      await apiClient.put(`/training-groups/${props.editingGroup.id}`, payload)
+      toast({ title: 'Группа успешно обновлена' })
+    } else {
+      await apiClient.post('/training-groups', payload)
+      toast({ title: 'Группа успешно создана' })
+    }
 
-  if (props.editingGroup) {
-    await base44.entities.TrainingGroup.update(props.editingGroup.id, data);
-  } else {
-    await base44.entities.TrainingGroup.create(data);
+    emit('saved')
+    close()
+  } catch (e) {
+    if (e.response?.status === 422) {
+      // Laravel валидация: подсветка полей
+      errors.value = e.response.data.errors || {}
+      toast({ title: 'Проверьте правильность заполнения', variant: 'destructive' })
+    } else {
+      console.error('Ошибка сохранения группы:', e)
+      toast({ 
+        title: 'Ошибка сохранения', 
+        description: e.response?.data?.message || e.message,
+        variant: 'destructive' 
+      })
+    }
+  } finally {
+    submitting.value = false
   }
-
-  emit("saved");
-  close();
 }
 </script>
