@@ -28,7 +28,6 @@ export const useCourseStore = defineStore('course', () => {
 
   async function read_courses() {
     const { data: response } = await courseService.read();
-    console.log(response);
     return response.courses;
   }
 

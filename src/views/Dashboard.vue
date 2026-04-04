@@ -14,7 +14,7 @@
       <!-- STATS -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatCard title="Курсы" :value="courses.length" :icon="BookOpen" />
-        <StatCard title="Участники" :value="participants.length" :icon="Users" />
+        <StatCard title="Участники" :value="totalParticipants" :icon="Users" />
 
         <StatCard
           title="Группы"
@@ -53,7 +53,7 @@
           >
             <div class="flex-1 min-w-0">
               <p class="font-medium truncate">
-                {{ group.course_name || "Курс не указан" }}
+                {{ group.course.name || "Курс не указан" }}
               </p>
 
               <p class="text-sm text-muted-foreground">
@@ -75,55 +75,63 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { base44 } from "@/api/base44Client";
-
-import {
-  BookOpen,
-  Users,
-  UsersRound,
-  Building2,
-  FileText,
-  ArrowRight
-} from "lucide-vue-next";
-
+import { BookOpen, Users, UsersRound, Building2, FileText, ArrowRight } from "lucide-vue-next";
 import PageHeader from "@/components/ui/PageHeader.vue";
 import StatCard from "@/components/ui/StatCard.vue";
 import StatusBadge from "@/components/ui/StatusBadge.vue";
 import ProgressBar from "@/components/ui/ProgressBar.vue";
+import { useDashboardStore } from "@/stores/useDashboardStore";
+
+const dashboardStore = useDashboardStore();
 
 const courses = ref([]);
-const participants = ref([]);
 const groups = ref([]);
 const companies = ref([]);
 const specs = ref([]);
-
 const loading = ref(true);
 
-const load = async () => {
-  const [c, p, g, co, s] = await Promise.all([
-    base44.entities.Course.list(),
-    base44.entities.Participant.list(),
-    base44.entities.TrainingGroup.list("-created_date", 50),
-    base44.entities.Company.list(),
-    base44.entities.Specification.list()
-  ]);
+const activeGroups = computed(() =>
+  groups.value.filter(g => g.status === 'in_progress').length
+);
 
-  courses.value = c;
-  participants.value = p;
-  groups.value = g;
-  companies.value = co;
-  specs.value = s;
+const totalParticipants = computed(() => {
+  const ids = new Set(
+    groups.value.flatMap(g => g.participants?.map(p => p.employee_id) ?? [])
+  );
+  return ids.size;
+});
+
+const recentGroups = computed(() =>
+  [...groups.value].slice(0, 5)
+);
+
+const load = async () => {
+  loading.value = true;
+  try {
+    const [c, g, co, s] = await Promise.all([
+      dashboardStore.fetchCourses(),
+      dashboardStore.fetchGroups(),
+      dashboardStore.fetchCompanies(),
+      dashboardStore.fetchSpecs(),
+    ]);
+
+    
+    
+    
+    
+
+    courses.value   = Array.isArray(c)  ? c  : [];
+    groups.value    = Array.isArray(g)  ? g  : [];
+    companies.value = Array.isArray(co) ? co : [];
+    specs.value     = Array.isArray(s)  ? s  : [];
+  } catch (e) {
+    console.error('load error:', e);
+  } finally {
+    
+  }
 
   loading.value = false;
 };
 
 onMounted(load);
-
-// last 5 groups
-const recentGroups = computed(() => groups.value.slice(0, 5));
-
-// active groups
-const activeGroups = computed(() =>
-  groups.value.filter((g) => g.status === "В процессе").length
-);
 </script>
