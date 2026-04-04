@@ -15,7 +15,7 @@
         </p>
       </div>
 
-      <StatusBadge :status="group?.status || 'planned'" :label="group?.status_label" />
+      <StatusBadge :status="group?.status_label || 'planned'" :label="group?.status_label" />
 
       <!-- Действия -->
       <div class="flex items-center gap-2 flex-shrink-0">
