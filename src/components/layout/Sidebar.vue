@@ -41,23 +41,35 @@
       </router-link>
     </nav>
 
-    <!-- Collapse -->
-    <button
-      @click="toggle"
-      class="mx-3 mb-4 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs text-sidebar-foreground/50 hover:bg-sidebar-accent transition-colors"
-    >
-      <ChevronRight v-if="collapsed" class="w-4 h-4" />
+    <!-- Bottom actions -->
+    <div class="px-3 mb-2 space-y-1">
+      <!-- Logout -->
+      <button
+        @click="handleLogout"
+        class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-red-500/10 hover:text-red-400 transition-all duration-200"
+      >
+        <LogOut class="w-5 h-5 shrink-0" />
+        <span v-if="!collapsed" class="truncate">Выйти</span>
+      </button>
 
-      <template v-else>
-        <ChevronLeft class="w-4 h-4" />
-        <span>Свернуть</span>
-      </template>
-    </button>
+      <!-- Collapse -->
+      <button
+        @click="toggle"
+        class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs text-sidebar-foreground/50 hover:bg-sidebar-accent transition-colors"
+      >
+        <ChevronRight v-if="collapsed" class="w-4 h-4" />
+        <template v-else>
+          <ChevronLeft class="w-4 h-4" />
+          <span>Свернуть</span>
+        </template>
+      </button>
+    </div>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { useRoute } from "vue-router";
+import { useAuthStore } from "@/stores/useAuthStore";
 
 import {
   LayoutDashboard,
@@ -70,9 +82,11 @@ import {
   GraduationCap,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from "lucide-vue-next";
 
 const route = useRoute();
+const authStore = useAuthStore();
 
 const props = defineProps({
   collapsed: Boolean
@@ -82,6 +96,10 @@ const emit = defineEmits(["update:collapsed"]);
 
 function toggle() {
   emit("update:collapsed", !props.collapsed);
+}
+
+async function handleLogout() {
+  await authStore.logout();
 }
 
 const navItems = [
