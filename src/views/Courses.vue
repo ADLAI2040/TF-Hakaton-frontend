@@ -141,8 +141,9 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 
 import { toast } from '@/composables/use-toast'
-import axios from 'axios';
+import { useCourseStore } from '@/stores/useCourseStore'
 
+const courseStore = useCourseStore()
 
 const emptyCourse = {
   name: "",
@@ -158,17 +159,21 @@ const search = ref("");
 const dialogOpen = ref(false);
 const editing = ref(null);
 const responseData = ref(null);
+const serverError = ref('')
 
 const form = ref({ ...emptyCourse });
+const isLoading = ref(false);
 
 const load = async () => {
+  isLoading.value = true
+  serverError.value = ''
+  
   try {
-        const data = await axios.get("http://localhost:8080/api/cources/list");
-        courses.value = data;
-  } catch (error) {
-    console.error('Ошибка:', error);
+  courses.value = await courseStore.read_courses();
+  } catch (err) {
+      serverError.value = courseStore.error || 'Ошибка соединения с сервером'
   } finally {
-    loading.value = false;
+    isLoading.value = false
   }
 };
 
@@ -198,32 +203,31 @@ const openEdit = (course) => {
 };
 
 const handleSave = async () => {
+  isLoading.value = true
+  serverError.value = ''
 
   try {
     // Данные для отправки
+    const id = editing.value; 
     const data = {
       code: Number(form.value.code),
       title: String(form.value.name),
       description: String(form.value.description),
       duration_days: Number(form.value.duration_days)
     };
-
     // Отправка POST запроса
-    if (editing.value) {
+    if (id.value) {
       //Обновление существующего курса
-      const response = await axios.post("http://localhost:8080/api/cources/${editing.id}", data);
-      toast({ title: "Курс обновлён" });
+      await courseStore.create_course(id, data);
     } else {
       //Создание нового курса
-      const response = await axios.post("http://localhost:8080/api/cources/create", data);
-      toast({ title: "Курс создан" });
+      await courseStore.update_course(data);
     }
-
-    // Получение ответа
-    responseData.value = response.data;
-    console.log(responseData.value);
-  } catch (error) {
-    console.error('Ошибка:', error);
+  
+} catch (err) {
+      serverError.value = courseStore.error || 'Ошибка соединения с сервером'
+  } finally {
+    isLoading.value = false
   }
   dialogOpen.value = false;
   load();
@@ -231,14 +235,11 @@ const handleSave = async () => {
 
 const handleDelete = async (id) => {
   try {
-    await axios.delete("http://localhost:8080/api/cources/${id}/soft");
+    await courseStore.delete_course(id);
     toast({ title: "Курс удалён" });
 
-    // Получение ответа
-    responseData.value = response.data;
-    console.log(responseData.value);
-  } catch (error) {
-    console.error('Ошибка:', error);
+  } catch (err) {
+      serverError.value = courseStore.error || 'Ошибка соединения с сервером'
   }
   load();
 };

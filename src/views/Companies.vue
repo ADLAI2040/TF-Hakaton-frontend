@@ -111,7 +111,6 @@
 
 <script setup>
 import { ref, computed, onMounted } from "vue";
-import { base44 } from "@/api/base44Client";
 
 import { Building2, Plus, Pencil, Trash2, Search } from "lucide-vue-next";
 
@@ -124,6 +123,7 @@ import PageHeader from "@/components/ui/PageHeader.vue";
 import EmptyState from "@/components/ui/EmptyState.vue";
 
 import { toast } from '@/composables/use-toast'
+import { axios } from '@/api/axios';
 
 
 
