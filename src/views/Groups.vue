@@ -41,7 +41,7 @@
               {{ g.start_date || '—' }} — {{ g.end_date || '—' }}
             </p>
           </div>
-          <StatusBadge :status="g.status || 'planned'" :label="g.status_label"/>
+          <StatusBadge :status="g.status_label || 'planned'" :label="g.status_label"/>
         </div>
 
         <!-- Progress -->

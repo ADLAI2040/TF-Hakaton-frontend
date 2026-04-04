@@ -183,30 +183,24 @@ let sliderDebounceTimer: ReturnType<typeof setTimeout> | null = null
 const loadGroup = async () => {
   const id = Number(route.params.id)
   if (!id) {
-    toast({ title: 'ID группы не указан'})
+    toast({ title: 'ID группы не указан' })
     return
   }
 
   loading.value = true
   try {
-    // Загружаем список и фильтруем по ID (т.к. read_group может не работать с пагинацией)
-    const allGroups = await store.read_groups()
-    const found = allGroups.find(g => g.id === id)
-    
-    if (found) {
-      group.value = found
-      participants.value = found.participants || []
-    } else {
-      throw new Error('Группа не найдена')
-    }
+    // Используем endpoint show вместо загрузки всех групп
+    const data = await store.read_group(id)
+    group.value = data
+    participants.value = data.participants || []
   } catch (e: any) {
     console.error('Ошибка загрузки группы:', e)
     if (e.response?.status === 404) {
-      toast({ title: 'Группа не найдена'})
+      toast({ title: 'Группа не найдена' })
       router.push('/groups')
     } else {
-      toast({ 
-        title: 'Ошибка загрузки', 
+      toast({
+        title: 'Ошибка загрузки',
         description: e.response?.data?.message || e.message,
       })
     }
