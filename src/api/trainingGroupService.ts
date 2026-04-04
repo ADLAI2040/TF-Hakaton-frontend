@@ -13,6 +13,10 @@ export const trainingGroupService = {
   delete: (id: number) =>
     apiClient.delete(`/training-groups/${id}`),
 
+  show(id: number) {
+  return apiClient.get(`/training-groups/${id}`);
+},
+
   // Участники группы
   getParticipants: (groupId: number) =>
     apiClient.get(`/training-groups/${groupId}/participants`),

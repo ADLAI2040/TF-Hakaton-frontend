@@ -57,11 +57,15 @@ export const useTrainingGroupStore = defineStore('trainingGroup', () => {
     return Array.isArray(raw) ? raw : [];
   }
 
-  async function read_group(id: number): Promise<TrainingGroup | null> {
-    const {  data } = await trainingGroupService.list();
-    const raw = data?.data?.data || data?.data || data || [];
-    return (Array.isArray(raw) ? raw.find((g: TrainingGroup) => g.id === id) : null) || null;
+async function read_group(id: number): Promise<TrainingGroup | null> {
+  try {
+    const { data } = await trainingGroupService.show(id);
+    return data?.data || data || null;
+  } catch (e: any) {
+    if (e.response?.status === 404) return null;
+    throw e;
   }
+}
 
   async function create_group(payload: object) {
     loading.value = true;
@@ -92,6 +96,8 @@ export const useTrainingGroupStore = defineStore('trainingGroup', () => {
       loading.value = false;
     }
   }
+
+  
 
   async function delete_group(id: number) {
     loading.value = true;
@@ -154,6 +160,9 @@ export const useTrainingGroupStore = defineStore('trainingGroup', () => {
       loading.value = false;
     }
   }
+
+
+  
 
   // --- Статус ---
   async function change_group_status(id: number, status: string) {
