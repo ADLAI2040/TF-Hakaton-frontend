@@ -14,6 +14,7 @@ import GanttChart from "../views/GanttChart.vue";
 import Analytics from "../views/Analytics.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
+import XmlImport from "../views/XmlImportPage.vue";
 
 import { useAuthStore } from "@/stores/useAuthStore";
 
@@ -43,6 +44,7 @@ const routes: Array<RouteRecordRaw> = [
       { path: "specifications", name: "Specifications", component: Specifications },
       { path: "gantt", name: "GanttChart", component: GanttChart },
       { path: "analytics", name: "Analytics", component: Analytics },
+      { path: '/xml-import',name: 'XmlImport',component: XmlImport}
     ],
   },
 ];
