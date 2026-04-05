@@ -320,7 +320,7 @@ const summaryCards = computed(() => {
       iconClass: "text-primary",
     },
     {
-      label: "Всего обученных",
+      label: "Всего на курсах",
       value: all.reduce((s, c) => s + c.trained_employees, 0),
       icon: Users,
       bgClass: "bg-green-500/10",
