@@ -256,7 +256,7 @@ const handleSave = async () => {
     const courseData = {
       code: form.value.code,
       title: form.value.title,
-      price: form.value.price,
+      price: Number(form.value.price).toFixed(2),
       description: form.value.description?.trim() || null,
       duration_days: Number(form.value.duration_days),
     };
@@ -264,10 +264,7 @@ const handleSave = async () => {
     if (editing.value) {
       await courseStore.update_course(editing.value.id, courseData);
     } else {
-      await courseStore.create_course({
-        ...courseData,
-        price: Number(form.value.price).toFixed(2),
-      });
+      await courseStore.create_course(courseData);
     }
 
     dialogOpen.value = false;
