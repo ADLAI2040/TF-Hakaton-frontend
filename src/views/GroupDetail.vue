@@ -99,7 +99,8 @@
               <span class="text-sm font-medium w-12 text-right tabular-nums">{{ p.completion_percent || 0 }}%</span>
 
               <!-- Сертификат -->
-              <div class="flex items-center gap-1">
+               
+              <div class="flex items-center gap-1" :class="{ 'invisible': p.completion_percent !== 100 }">
                 <template v-if="p.certificate_path">
                   <Button
                     size="icon"
