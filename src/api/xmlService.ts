@@ -8,6 +8,7 @@ export const xmlService = {
     }),
 
   // Список батчей импорта
+  listBatches: () =>
     apiClient.get('/xml/batches'),
 
   // Детали конкретного батча
