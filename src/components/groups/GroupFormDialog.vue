@@ -120,7 +120,7 @@ const form = reactive({
   course_id: '',
   start_date: '',
   end_date: '',
-  status: 'planned' // Enum value, not label
+  status: 'planned' 
 })
 
 function close() {
@@ -131,11 +131,11 @@ function formatPrice(n) {
   return Number(n || 0).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
-// Безопасное извлечение цены (массив объектов или число)
+
 function getActivePrice(course) {
   if (!course?.price) return 0
   if (Array.isArray(course.price)) {
-    // Берём первую запись с ценой или первую в списке
+    
     const found = course.price.find(p => p.price != null) || course.price[0]
     return found?.price || 0
   }
@@ -145,9 +145,9 @@ function getActivePrice(course) {
 async function loadCourses() {
   loadingCourses.value = true
   try {
-    // ✅ Исправленный endpoint согласно вашим роутам
+    
     const { data } = await apiClient.get('/courses/list')
-    // Поддержка разных форматов ответа API
+    
     courses.value = data?.courses || data?.data?.courses || data?.data || data || []
   } catch (e) {
     console.error('Ошибка загрузки курсов:', e)
@@ -166,10 +166,10 @@ watch(
     
     if (isEditing.value && props.editingGroup) {
       form.course_id = props.editingGroup.course_id || ''
-      // Приводим даты к YYYY-MM-DD
+      
       form.start_date = props.editingGroup.start_date ? String(props.editingGroup.start_date).split('T')[0] : ''
       form.end_date = props.editingGroup.end_date ? String(props.editingGroup.end_date).split('T')[0] : ''
-      // ✅ Бэкенд возвращает enum value, просто используем его. Fallback на planned
+      
       form.status = props.editingGroup.status || 'planned'
     } else {
       form.course_id = ''
@@ -183,6 +183,32 @@ watch(
     }
   }
 )
+
+function calcEndDate(startDate, durationDays) {
+  if (!startDate || !durationDays) return ''
+  const date = new Date(startDate)
+  date.setDate(date.getDate() + Number(durationDays))
+  return date.toISOString().split('T')[0]
+}
+
+
+const selectedCourse = computed(() => 
+  courses.value.find(c => c.id === form.course_id || c.id === Number(form.course_id))
+)
+
+
+watch(() => form.start_date, (newDate) => {
+  if (newDate && selectedCourse.value?.duration_days) {
+    form.end_date = calcEndDate(newDate, selectedCourse.value.duration_days)
+  }
+})
+
+
+watch(() => form.course_id, () => {
+  if (form.start_date && selectedCourse.value?.duration_days) {
+    form.end_date = calcEndDate(form.start_date, selectedCourse.value.duration_days)
+  }
+})
 
 async function submit() {
   submitting.value = true
@@ -203,7 +229,7 @@ async function submit() {
     close()
   } catch (e) {
     if (e.response?.status === 422) {
-      // Laravel валидация: подсветка полей
+      
       errors.value = e.response.data.errors || {}
       toast({ title: 'Проверьте правильность заполнения', variant: 'destructive' })
     } else {
