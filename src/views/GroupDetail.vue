@@ -98,6 +98,48 @@
 
               <span class="text-sm font-medium w-12 text-right tabular-nums">{{ p.completion_percent || 0 }}%</span>
 
+              <!-- Сертификат -->
+              <div class="flex items-center gap-1">
+                <template v-if="p.certificate_path">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    class="h-8 w-8 text-green-600"
+                    title="Скачать сертификат"
+                    :disabled="store.loading || certificateLoadingId === p.id"
+                    @click="downloadCertificate(p)"
+                  >
+                    <FileDown class="w-3.5 h-3.5" />
+                  </Button>
+
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    class="h-8 w-8 text-orange-500"
+                    title="Удалить сертификат"
+                    :disabled="store.loading || certificateLoadingId === p.id"
+                    @click="deleteCertificate(p)"
+                  >
+                    <Loader2 v-if="certificateLoadingId === p.id" class="w-3.5 h-3.5 animate-spin" />
+                    <FileX v-else class="w-3.5 h-3.5" />
+                  </Button>
+                </template>
+
+                <template v-else>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    class="h-8 w-8 text-muted-foreground hover:text-primary"
+                    title="Загрузить сертификат"
+                    :disabled="store.loading || certificateLoadingId === p.id"
+                    @click="triggerCertificateUpload(p.id)"
+                  >
+                    <Loader2 v-if="certificateLoadingId === p.id" class="w-3.5 h-3.5 animate-spin" />
+                    <FileUp v-else class="w-3.5 h-3.5" />
+                  </Button>
+                </template>
+              </div>
+
               <Button 
                 size="icon" 
                 variant="ghost" 
@@ -131,6 +173,15 @@
       </div>
     </div>
 
+    <!-- Скрытый input для загрузки PDF -->
+    <input
+      ref="certFileInput"
+      type="file"
+      accept="application/pdf"
+      class="hidden"
+      @change="handleCertificateFileSelected"
+    />
+
     <!-- Dialogs -->
     <GroupFormDialog 
       v-model:open="editDialogOpen" 
@@ -149,9 +200,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useTrainingGroupStore, type TrainingGroup } from '@/stores/useTrainingGroupStore'
+import { trainingGroupService } from '@/api/trainingGroupService'
 import { toast } from '@/composables/use-toast'
 
-import { ArrowLeft, Pencil, Trash2, UserPlus, Loader2 } from 'lucide-vue-next'
+import { ArrowLeft, Pencil, Trash2, UserPlus, Loader2, FileUp, FileDown, FileX } from 'lucide-vue-next'
 import Button from '@/components/ui/button.vue'
 import Slider from '@/components/ui/Slider.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
@@ -165,10 +217,11 @@ const router = useRouter()
 
 const group = ref<TrainingGroup | null>(null)
 const participants = ref<Array<{
-  id: number;
-  employee_id: number;
-  employee?: { id: number; full_name: string; email?: string };
-  completion_percent: number;
+  id: number
+  employee_id: number
+  employee?: { id: number; full_name: string; email?: string }
+  completion_percent: number
+  certificate_path?: string | null
 }>>([])
 const loading = ref(true)
 const editDialogOpen = ref(false)
@@ -178,7 +231,14 @@ const addingLoading = ref(false)
 const savingProgressId = ref<number | null>(null)
 const deletingGroup = ref(false)
 
+// Сертификаты
+const certificateLoadingId = ref<number | null>(null)
+const certUploadTargetId = ref<number | null>(null)
+const certFileInput = ref<HTMLInputElement | null>(null)
+
 let sliderDebounceTimer: ReturnType<typeof setTimeout> | null = null
+
+// ── Загрузка данных ─────────────────────────────────────────────────
 
 const loadGroup = async () => {
   const id = Number(route.params.id)
@@ -189,7 +249,6 @@ const loadGroup = async () => {
 
   loading.value = true
   try {
-    // Используем endpoint show вместо загрузки всех групп
     const data = await store.read_group(id)
     group.value = data
     participants.value = data.participants || []
@@ -221,6 +280,8 @@ const onGroupSaved = async () => {
   toast({ title: 'Группа обновлена' })
   await loadGroup()
 }
+
+// ── Прогресс ────────────────────────────────────────────────────────
 
 const averageProgress = computed(() => {
   if (!participants.value.length) return 0
@@ -262,6 +323,8 @@ const updateCompletion = async (pId: number, value: number) => {
   }
 }
 
+// ── Участники ───────────────────────────────────────────────────────
+
 const removeParticipant = async (pId: number) => {
   if (!group.value) return
   if (!confirm('Удалить участника из группы?')) return
@@ -292,7 +355,7 @@ const handleAddParticipants = async (employeeIds: number[]) => {
   const newIds = employeeIds.filter(id => !existing.has(id))
   
   if (!newIds.length) {
-    toast({ title: 'Сотрудники уже добавлены',})
+    toast({ title: 'Сотрудники уже добавлены' })
     return
   }
 
@@ -307,7 +370,7 @@ const handleAddParticipants = async (employeeIds: number[]) => {
     
     if (failCount > 0) {
       toast({
-        title: `Частичный успех`,
+        title: 'Частичный успех',
         description: `Добавлено: ${successCount}, ошибок: ${failCount}`,
       })
     } else {
@@ -326,6 +389,123 @@ const handleAddParticipants = async (employeeIds: number[]) => {
     addingLoading.value = false
   }
 }
+
+// ── Сертификаты ─────────────────────────────────────────────────────
+
+/**
+ * Открывает системный диалог выбора файла.
+ * Запоминает participantId, чтобы при выборе файла отправить на правильный endpoint.
+ */
+const triggerCertificateUpload = (participantId: number) => {
+  certUploadTargetId.value = participantId
+  if (certFileInput.value) {
+    certFileInput.value.value = ''
+    certFileInput.value.click()
+  }
+}
+
+/**
+ * Обработчик выбора файла — отправляет PDF через trainingGroupService.
+ */
+const handleCertificateFileSelected = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || !group.value || !certUploadTargetId.value) return
+
+  if (file.type !== 'application/pdf') {
+    toast({ title: 'Допустимый формат — только PDF' })
+    return
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    toast({ title: 'Размер файла не должен превышать 5 МБ' })
+    return
+  }
+
+  const participantId = certUploadTargetId.value
+  certificateLoadingId.value = participantId
+
+  try {
+    const { data } = await trainingGroupService.uploadCertificate(
+      group.value.id,
+      participantId,
+      file,
+    )
+
+    const participant = participants.value.find(p => p.id === participantId)
+    if (participant) {
+      participant.certificate_path = data?.data?.certificate_path || 'uploaded'
+    }
+
+    toast({ title: 'Сертификат загружен' })
+  } catch (e: any) {
+    console.error('Ошибка загрузки сертификата:', e)
+    const message = e.response?.data?.errors?.certificate?.[0]
+      || e.response?.data?.message
+      || e.message
+    toast({ title: 'Ошибка загрузки сертификата', description: message })
+  } finally {
+    certificateLoadingId.value = null
+    certUploadTargetId.value = null
+  }
+}
+
+/**
+ * Скачивание сертификата через API-endpoint (Blob).
+ * Всегда идём через бэкенд, не обращаемся к storage напрямую.
+ */
+const downloadCertificate = async (participant: { id: number }) => {
+  if (!group.value) return
+
+  certificateLoadingId.value = participant.id
+  try {
+    const { data } = await trainingGroupService.downloadCertificate(
+      group.value.id,
+      participant.id,
+    )
+
+    const url = window.URL.createObjectURL(new Blob([data], { type: 'application/pdf' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `certificate_${participant.id}.pdf`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (e: any) {
+    console.error('Ошибка скачивания сертификата:', e)
+    toast({ title: 'Не удалось скачать сертификат' })
+  } finally {
+    certificateLoadingId.value = null
+  }
+}
+
+/**
+ * Удаление сертификата с подтверждением.
+ */
+const deleteCertificate = async (participant: { id: number }) => {
+  if (!group.value) return
+  if (!confirm('Удалить сертификат этого участника?')) return
+
+  certificateLoadingId.value = participant.id
+  try {
+    await trainingGroupService.deleteCertificate(group.value.id, participant.id)
+
+    const p = participants.value.find(item => item.id === participant.id)
+    if (p) {
+      p.certificate_path = null
+    }
+
+    toast({ title: 'Сертификат удалён' })
+  } catch (e: any) {
+    console.error('Ошибка удаления сертификата:', e)
+    toast({ title: 'Не удалось удалить сертификат' })
+  } finally {
+    certificateLoadingId.value = null
+  }
+}
+
+// ── Удаление группы ─────────────────────────────────────────────────
 
 const deleteGroup = async () => {
   if (!group.value) return

@@ -14,8 +14,8 @@ export const trainingGroupService = {
     apiClient.delete(`/training-groups/${id}`),
 
   show(id: number) {
-  return apiClient.get(`/training-groups/${id}`);
-},
+    return apiClient.get(`/training-groups/${id}`);
+  },
 
   // Участники группы
   getParticipants: (groupId: number) =>
@@ -33,4 +33,34 @@ export const trainingGroupService = {
   // Статус группы
   changeStatus: (id: number, status: string) =>
     apiClient.patch(`/training-groups/${id}/status`, { status }),
+
+  // ── Сертификаты ───────────────────────────────────────────────────
+  //
+  // Загрузка, скачивание и удаление PDF-сертификата участника группы.
+  // Используется apiClient — токен и baseURL подставляются автоматически.
+
+  /** POST — загрузка сертификата (multipart/form-data) */
+  uploadCertificate: (groupId: number, participantId: number, file: File) => {
+    const formData = new FormData()
+    formData.append('certificate', file)
+
+    return apiClient.post(
+      `/training-groups/${groupId}/participants/${participantId}/certificate`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+  },
+
+  /** GET — скачивание сертификата (возвращает Blob) */
+  downloadCertificate: (groupId: number, participantId: number) =>
+    apiClient.get(
+      `/training-groups/${groupId}/participants/${participantId}/certificate`,
+      { responseType: 'blob' },
+    ),
+
+  /** DELETE — удаление сертификата */
+  deleteCertificate: (groupId: number, participantId: number) =>
+    apiClient.delete(
+      `/training-groups/${groupId}/participants/${participantId}/certificate`,
+    ),
 };
