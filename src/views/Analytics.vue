@@ -52,7 +52,7 @@
                 <tr class="border-b border-border bg-muted/30">
                   <th class="text-left px-6 py-3 font-medium text-muted-foreground">Компания</th>
                   <th class="text-center px-4 py-3 font-medium text-muted-foreground">Сотрудники</th>
-                  <th class="text-center px-4 py-3 font-medium text-muted-foreground">Обученных</th>
+                  <th class="text-center px-4 py-3 font-medium text-muted-foreground">На курсах</th>
                   <th class="text-center px-4 py-3 font-medium text-muted-foreground">Групп</th>
                   <th class="text-center px-4 py-3 font-medium text-muted-foreground">Спецификаций</th>
                   <th class="text-right px-4 py-3 font-medium text-muted-foreground">Стоимость (с НДС)</th>
@@ -116,7 +116,7 @@
           <!-- Обученность по компаниям -->
           <div class="bg-card rounded-2xl border border-border p-6">
             <h3 class="text-sm font-semibold mb-4 text-muted-foreground">
-              Сотрудники: всего vs обученных
+              Сотрудники: всего vs на курсах
             </h3>
             <div class="space-y-3">
               <div v-for="c in companies" :key="'bar-' + c.id">
@@ -129,7 +129,7 @@
                 <div class="flex gap-1 h-5">
                   <!-- Обученные -->
                   <div
-                    class="bg-primary rounded-l-md transition-all"
+                    class="bg-primary rounded-md transition-all"
                     :style="{
                       width: barWidth(c.trained_employees, maxEmployees) + '%',
                       minWidth: c.trained_employees > 0 ? '4px' : '0'
@@ -148,7 +148,7 @@
             </div>
             <div class="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
               <span class="flex items-center gap-1.5">
-                <span class="w-3 h-3 rounded-sm bg-primary" /> Обученных
+                <span class="w-3 h-3 rounded-sm bg-primary" /> На курсах
               </span>
               <span class="flex items-center gap-1.5">
                 <span class="w-3 h-3 rounded-sm bg-muted" /> Не участвовали

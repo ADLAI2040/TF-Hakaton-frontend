@@ -61,7 +61,7 @@
               </p>
             </div>
 
-            <StatusBadge :status="group.label" />
+            <StatusBadge :status="group.status_label" />
 
             <div class="w-32 hidden sm:block">
               <ProgressBar :value="group.average_progress || 0" size="sm" />

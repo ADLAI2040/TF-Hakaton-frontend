@@ -251,7 +251,7 @@ const loadGroup = async () => {
   try {
     const data = await store.read_group(id)
     group.value = data
-    participants.value = data.participants || []
+    participants.value = data?.participants || []
   } catch (e: any) {
     console.error('Ошибка загрузки группы:', e)
     if (e.response?.status === 404) {
@@ -290,7 +290,7 @@ const averageProgress = computed(() => {
 })
 
 const handleSliderUpdate = (pId: number, value: number) => {
-  const numValue = Number(value)
+  const numValue = Math.round(Number(value) * 100) / 100
   const participant = participants.value.find(p => p.id === pId)
   
   if (participant) participant.completion_percent = numValue

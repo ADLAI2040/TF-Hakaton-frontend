@@ -527,8 +527,7 @@ function configureGantt() {
   gantt.templates.timeline_cell_class = () => "";
 
   gantt.templates.task_text = (start, end, task) => {
-    const pct = Math.round((task.progress || 0) * 100);
-    return `<span class="gantt-bar-text">${task.text}</span><span class="gantt-bar-pct">${pct}%</span>`;
+    return `<span class="gantt-bar-text">${task.text}</span>`;
   };
 
   gantt.templates.progress_text = () => "";
@@ -569,8 +568,39 @@ function configureGantt() {
   };
 
   // ── Подавляем тултип, когда color picker открыт ─────────────────────────────
-  gantt.attachEvent("onBeforeTooltip", () => {
-    return !colorPicker.value.visible;
+  gantt.attachEvent("onBeforeTooltip", (id, mode, e) => {
+  if (colorPicker.value.visible) return false;
+
+  // Показываем тултип ТОЛЬКО если курсор над баром в timeline-части.
+  // Исправляет баг: тултип оставался при переходе курсора на левую панель.
+  const target = e?.target || e?.srcElement;
+  if (!target) return false;
+
+  const isOnBar =
+    target.closest(".gantt_task_line") ||
+    target.closest(".gantt_task_drag") ||
+    target.closest(".gantt_task_progress_drag");
+
+  return !!isOnBar;
+  });
+
+  // Скрываем тултип при уходе в grid-панель (левая часть)
+  gantt.attachEvent("onMouseMove", (id, e) => {
+    if (!e) return;
+    const target = e.target || e.srcElement;
+    if (!target) return;
+
+    const inTaskArea =
+      target.closest(".gantt_task_line") ||
+      target.closest(".gantt_task_area") ||
+      target.closest(".gantt_task_row") ||
+      target.closest(".gantt_row") ||
+      target.closest(".gantt_row_task");
+
+    const tooltipEl = document.querySelector(".gantt_tooltip");
+    if (tooltipEl) {
+      tooltipEl.style.visibility = inTaskArea ? "" : "hidden";
+    }
   });
 
   // ── Обработка drag-and-drop: PATCH даты ─────────────────────────────────────
@@ -635,6 +665,11 @@ function initGantt() {
 
   configureGantt();
   gantt.init(ganttContainer.value);
+  ganttContainer.value.addEventListener("mouseleave", () => {
+    const tooltipEl = document.querySelector(".gantt_tooltip");
+    if (tooltipEl) tooltipEl.style.visibility = "hidden";
+  });
+
   ganttReady.value = true;
 
   gantt.ext.zoom.setLevel(SCALES[scale.value].zoomLevel);
@@ -886,23 +921,56 @@ function openColorPicker(event, group) {
 }
 
 async function applyColor(color) {
-  const group = colorPicker.value.group;
-  if (!group) return;
+  const id = colorPicker.value.group?.id;
+  if (!id) return;
 
-  // Оптимистичное обновление
-  group.color = color;
-  colorPicker.value.currentColor = color;
   closeColorPicker();
 
-  // Обновляем в кеше тоже
-  if (groupsCache.has(group.id)) {
-    groupsCache.get(group.id).color = color;
+  // 1. Обновляем кеш
+  if (groupsCache.has(id)) {
+    groupsCache.get(id).color = color;
   }
 
-  requestAnimationFrame(() => applyBarColors());
+  // 2. Обновляем реактивный массив — заменяем объект целиком (новая ссылка → Vue видит изменение)
+  const idx = groups.value.findIndex((g) => g.id === id);
+  if (idx !== -1) {
+    groups.value[idx] = { ...groups.value[idx], color };
+  }
 
+  // 3. Обновляем задачу в DHTMLX — refreshTask перерисует grid-ячейку (gantt-cell-dot)
+  //    и обновит task-объект, который читает tooltip_text
   try {
-    await apiClient.patch(`/gantt/${group.id}/color`, { color });
+    const task = gantt.getTask(id);
+    if (task) {
+      task.color = color;
+      task.progressColor = color;
+      gantt.refreshTask(id);
+    }
+  } catch {
+    // задача может отсутствовать
+  }
+
+  // 4. DOM-патч бара (фон + прогресс) — после того как refreshTask обновил DOM
+  requestAnimationFrame(() => {
+    try {
+      const node = gantt.getTaskNode(id);
+      if (!node) return;
+
+      node.style.background = hexAlpha(color, 0.15);
+      node.style.border = `1.5px solid ${color}`;
+
+      const progress = node.querySelector(".gantt_task_progress");
+      if (progress) {
+        progress.style.background = darkenHex(color, 0.25);
+      }
+    } catch {
+      // ignore
+    }
+  });
+
+  // 5. PATCH на сервер
+  try {
+    await apiClient.patch(`/gantt/${id}/color`, { color });
   } catch (e) {
     console.error("Ошибка обновления цвета:", e);
     invalidateCache();
@@ -1103,7 +1171,7 @@ onBeforeUnmount(() => {
 .gantt-bar-pct {
   font-size: 11px;
   font-weight: 600;
-  opacity: 1;
+  opacity: 0;
   color:gray;
 }
 
@@ -1150,14 +1218,16 @@ onBeforeUnmount(() => {
 }
 
 /* ── Tooltip ───────────────────────────────────────────────────────────────── */
-.gantt-dhtmlx-target .gantt_tooltip {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  opacity: 1 !important;
-  pointer-events: none;
-}
+  .gantt-dhtmlx-target .gantt_tooltip,
+  .gantt_tooltip {
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    opacity: 1 !important;
+    pointer-events: none;
+  }
 
 .gantt-tooltip-card {
   background: hsl(var(--card));

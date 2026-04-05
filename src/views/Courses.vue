@@ -86,9 +86,7 @@
           <Input
             v-model="form.code"
             placeholder="Например: OT-01-2024"
-            :class="fe.code ? 'border-destructive' : ''"
           />
-          <p v-if="fe.code" class="text-xs text-destructive mt-1">{{ fe.code }}</p>
         </div>
 
         <div>
@@ -96,9 +94,7 @@
           <Input
             v-model="form.title"
             placeholder="Например: Охрана труда"
-            :class="fe.title ? 'border-destructive' : ''"
           />
-          <p v-if="fe.title" class="text-xs text-destructive mt-1">{{ fe.title }}</p>
         </div>
 
         <div>
@@ -106,9 +102,7 @@
           <Textarea
             v-model="form.description"
             rows="3"
-            :class="fe.description ? 'border-destructive' : ''"
           />
-          <p v-if="fe.description" class="text-xs text-destructive mt-1">{{ fe.description }}</p>
         </div>
 
         <div>
@@ -116,9 +110,7 @@
           <Input
             type="number"
             v-model="form.duration_days"
-            :class="fe.duration_days ? 'border-destructive' : ''"
           />
-          <p v-if="fe.duration_days" class="text-xs text-destructive mt-1">{{ fe.duration_days }}</p>
         </div>
 
         <div class="border-t border-border pt-4">
@@ -130,9 +122,7 @@
               type="number"
               v-model="form.price"
               placeholder="0"
-              :class="fe.price ? 'border-destructive' : ''"
             />
-            <p v-if="fe.price" class="text-xs text-destructive mt-1">{{ fe.price }}</p>
             <p v-if="editing" class="text-xs text-muted-foreground mt-1">
               Оставьте прежнее значение если цена не изменилась
             </p>
@@ -212,8 +202,6 @@ const selectedCourse = ref(null);
 const prices = ref([]);
 const pricesLoading = ref(false);
 
-const fe = computed(() => courseStore.fieldErrors);
-
 const isFormInvalid = computed(() =>
   !form.value.title?.trim() ||
   !form.value.code?.trim() ||
@@ -226,7 +214,8 @@ const load = async () => {
   loading.value = true;
   try {
     courses.value = await courseStore.read_courses();
-  } catch {
+  } catch (e) {
+    toast({ title: 'Ошибка загрузки курсов', description: e.response?.data?.message || e.message });
   } finally {
     loading.value = false;
   }
@@ -284,7 +273,11 @@ const handleSave = async () => {
     dialogOpen.value = false;
     await load();
   } catch (e) {
-    console.log(e.response?.data);
+    const fieldErrs = courseStore.fieldErrors
+     const description = Object.keys(fieldErrs).length
+       ? Object.values(fieldErrs).join(' · ')
+     : e.response?.data?.message || e.message
+     toast({ title: 'Ошибка сохранения курса', description, variant: 'destructive' })
   } finally {
     loading.value = false;
   }
@@ -295,7 +288,8 @@ const handleDelete = async (id) => {
     await courseStore.delete_course(id);
     toast({ title: "Курс удалён" });
     await load();
-  } catch {}
+  } catch (e) {
+    toast({ title: 'Ошибка удаления курса', description: e.response?.data?.message || e.message, variant: 'destructive' })  }
 };
 
 const openPrices = async (course) => {
@@ -310,7 +304,7 @@ const loadPrices = async (courseId) => {
     const result = await courseStore.read_prices(courseId);
     prices.value = Array.isArray(result) ? result : [];
   } catch (e) {
-    console.log('loadPrices error:', e);
+    toast({ title: 'Ошибка загрузки истории цен', description: e.response?.data?.message || e.message, variant: 'destructive' });
   } finally {
     pricesLoading.value = false;
   }
